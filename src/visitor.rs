@@ -22,7 +22,7 @@ use crate::source_map::{LineRangeUtils, SpanUtils};
 use crate::spanned::Spanned;
 use crate::utils::{
     self, contains_skip, count_newlines, inner_attributes, mk_sp, ptr_vec_to_ref_vec,
-    rewrite_ident, stmt_expr, DEPR_SKIP_ANNOTATION,
+    rewrite_ident, stmt_expr, get_skip_macro_names, DEPR_SKIP_ANNOTATION,
 };
 use crate::{ErrorKind, FormatReport, FormattingError};
 
@@ -67,6 +67,7 @@ pub struct FmtVisitor<'a> {
     pub skipped_range: Vec<(usize, usize)>,
     pub macro_rewrite_failure: bool,
     pub(crate) report: FormatReport,
+    pub base_skip_macro_names: Vec<String>,
     pub skip_macro_names: Rc<RefCell<Vec<String>>>,
 }
 
@@ -299,8 +300,11 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
         let filtered_attrs;
         let mut attrs = &item.attrs;
 
-        let skip_macro_names = RefCell::new(self.get_skip_macro_names(&attrs));
+        let mut base_vec = get_skip_macro_names(&attrs);
+        base_vec.append(&mut self.base_skip_macro_names);
+        let skip_macro_names = RefCell::new(base_vec);
         self.skip_macro_names.swap(&skip_macro_names);
+        dbg!(&self.skip_macro_names);
 
         let should_visit_node_again = match item.node {
             // For use items, skip rewriting attributes. Just check for a skip attribute.
@@ -630,6 +634,7 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
             skipped_range: vec![],
             macro_rewrite_failure: false,
             report,
+            base_skip_macro_names: vec![],
             skip_macro_names: Rc::new(RefCell::new(vec![])),
         }
     }
@@ -845,18 +850,5 @@ impl<'b, 'a: 'b> FmtVisitor<'a> {
             report: self.report.clone(),
             skip_macro_names: self.skip_macro_names.clone(),
         }
-    }
-
-    pub fn get_skip_macro_names(&mut self, attrs: &[ast::Attribute]) -> Vec<String> {
-        let context = self.get_context();
-        let mut skip_macro_names = vec![];
-        for attr in attrs {
-            if let Some(list) = attr.meta().unwrap().meta_item_list() {
-                for spannd in list {
-                    skip_macro_names.push(context.snippet(spannd.span()).to_string());
-                }
-            }
-        }
-        skip_macro_names
     }
 }

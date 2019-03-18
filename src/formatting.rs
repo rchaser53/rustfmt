@@ -17,6 +17,7 @@ use crate::config::{Config, FileName, Verbosity};
 use crate::issues::BadIssueSeeker;
 use crate::visitor::{FmtVisitor, SnippetProvider};
 use crate::{modules, source_file, ErrorKind, FormatReport, Input, Session};
+use crate::utils::{count_newlines, get_skip_macro_names};
 
 // A map of the files of a crate, with their new content
 pub(crate) type SourceFile = Vec<FileRecord>;
@@ -141,6 +142,9 @@ impl<'a, T: FormatHandler + 'a> FormatContext<'a, T> {
             self.report.clone(),
         );
 
+        let mut skip_macro_names = get_skip_macro_names(&self.krate.attrs);
+        visitor.base_skip_macro_names.append(&mut skip_macro_names);
+
         // Format inner attributes if available.
         if !self.krate.attrs.is_empty() && is_root {
             visitor.skip_empty_lines(source_file.end_pos);
@@ -157,7 +161,7 @@ impl<'a, T: FormatHandler + 'a> FormatContext<'a, T> {
 
         debug_assert_eq!(
             visitor.line_number,
-            crate::utils::count_newlines(&visitor.buffer)
+            count_newlines(&visitor.buffer)
         );
 
         // For some reason, the source_map does not include terminating

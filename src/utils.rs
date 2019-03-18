@@ -603,6 +603,20 @@ pub(crate) fn unicode_str_width(s: &str) -> usize {
     s.width()
 }
 
+pub fn get_skip_macro_names(attrs: &[ast::Attribute]) -> Vec<String> {
+    let mut skip_macro_names = vec![];
+    for attr in attrs {
+        if let Some(list) = attr.meta().unwrap().meta_item_list() {
+            for spanned in list {
+                if let Some(name) = spanned.name() {
+                  skip_macro_names.push(name.to_string());
+                }
+            }
+        }
+    }
+    skip_macro_names
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
