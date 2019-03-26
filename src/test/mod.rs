@@ -114,6 +114,8 @@ fn write_message(msg: &str) {
 // exactly.
 #[test]
 fn system_tests() {
+    env::set_var("RUST_MIN_STACK", "8388608");
+
     // Get all files in the tests/source directory.
     let files = get_test_files(Path::new("tests/source"), true);
     let (_reports, count, fails) = check_files(files, &None);
