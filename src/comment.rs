@@ -1608,23 +1608,59 @@ pub(crate) fn filter_normal_code(code: &str) -> String {
 /// - whitespace,
 /// - '*' at the beginning of lines in block comments.
 fn changed_comment_content(orig: &str, new: &str) -> bool {
+    let orig_comments = create_comments(orig);
+    let new_comments = create_comments(new);
+
+    orig_comments.iter().enumerate().any(|(index, elem)| {
+        if let Some(new_str) = new_comments.get(index) {
+            elem != new_str
+        } else {
+            return true;
+        }
+    })
+
     // Cannot write this as a fn since we cannot return types containing closures.
-    let code_comment_content = |code| {
-        let slices = UngroupedCommentCodeSlices::new(code);
-        slices
-            .filter(|&(ref kind, _, _)| *kind == CodeCharKind::Comment)
-            .flat_map(|(_, _, s)| CommentReducer::new(s))
-    };
-    let res = code_comment_content(orig).ne(code_comment_content(new));
-    debug!(
-        "comment::changed_comment_content: {}\norig: '{}'\nnew: '{}'\nraw_old: {}\nraw_new: {}",
-        res,
-        orig,
-        new,
-        code_comment_content(orig).collect::<String>(),
-        code_comment_content(new).collect::<String>()
-    );
-    res
+    // let code_comment_content = |code| {
+    //     let slices = UngroupedCommentCodeSlices::new(code);
+    //     slices
+    //         .filter(|&(ref kind, _, _)| *kind == CodeCharKind::Comment)
+    //         .flat_map(|(_, _, s)| CommentReducer::new(s))
+    // };
+    // let res = code_comment_content(orig).ne(code_comment_content(new));
+    // debug!(
+    //     "comment::changed_comment_content: {}\norig: '{}'\nnew: '{}'\nraw_old: {}\nraw_new: {}",
+    //     res,
+    //     orig,
+    //     new,
+    //     code_comment_content(orig).collect::<String>(),
+    //     code_comment_content(new).collect::<String>()
+    // );
+    // res
+}
+
+fn create_comments(input: &str) -> Vec<&str> {
+    let mut result = vec![];
+    let mut start_pos = 0;
+    while let Some((comment_type, last_pos)) = get_comment_type_and_end_pos(&input[start_pos..])
+    {
+        result.push(comment_type);
+        start_pos += last_pos;
+    }
+    result
+}
+
+fn get_comment_type_and_end_pos<'a>(input: &'a str) -> Option<(&'a str, usize)> {
+    if let Some(one_line_pos) = input.find("//") {
+        let temp_str = &input[one_line_pos..];
+        let last_pos = temp_str.find("\n").unwrap_or(temp_str.len() - 1);
+        Some((&temp_str[..=last_pos].trim(), one_line_pos + last_pos))
+    } else if let Some(multi_line_pos) = input.find("/*") {
+        let temp_str = &input[multi_line_pos..];
+        let last_pos = temp_str.find("*/").unwrap_or(temp_str.len() - 1);
+        Some((&temp_str[..=last_pos + 1].trim(), multi_line_pos + last_pos))
+    } else {
+        None
+    }
 }
 
 /// Iterator over the 'payload' characters of a comment.
